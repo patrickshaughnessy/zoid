@@ -204,7 +204,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             if (prop && prop.sameDomain && !matchDomain(domain, getDomain(window))) {
                 continue;
             }
-            
+
             result[key] = props[key];
         }
 
@@ -329,6 +329,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         }
 
         return ZalgoPromise.hash({
+            triggerEvent: event.trigger(EVENT.SHOW),
             setState:    setInternalState({ visible: true }),
             showElement: currentProxyContainer ? currentProxyContainer.get().then(showElement) : null
         }).then(noop);
@@ -340,6 +341,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         }
 
         return ZalgoPromise.hash({
+            triggerEvent: event.trigger(EVENT.HIDE),
             setState:    setInternalState({ visible: false }),
             showElement: currentProxyContainer ? currentProxyContainer.get().then(hideElement) : null
         }).then(noop);
@@ -387,7 +389,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         if (openFrameOverride) {
             return openFrameOverride(context, { windowName });
         }
-        
+
         return ZalgoPromise.try(() => {
             if (context === CONTEXT.IFRAME && __ZOID__.__IFRAME_SUPPORT__) {
 
@@ -422,21 +424,21 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             }
         });
     };
-    
+
     const openPrerender = (context : $Values<typeof CONTEXT>, proxyWin : ProxyWindow, proxyPrerenderFrame : ?ProxyObject<HTMLIFrameElement>) : ZalgoPromise<ProxyWindow> => {
         if (openPrerenderOverride) {
             return openPrerenderOverride(context, proxyWin, proxyPrerenderFrame);
         }
-        
+
         return ZalgoPromise.try(() => {
             if (context === CONTEXT.IFRAME && __ZOID__.__IFRAME_SUPPORT__) {
                 if (!proxyPrerenderFrame) {
                     throw new Error(`Expected proxy frame to be passed`);
                 }
-                
+
                 return proxyPrerenderFrame.get().then(prerenderFrame => {
                     clean.register(() => destroyElement(prerenderFrame));
-        
+
                     return awaitFrameWindow(prerenderFrame).then(prerenderFrameWindow => {
                         return assertSameDomain(prerenderFrameWindow);
                     }).then(win => {
@@ -463,7 +465,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
     };
 
     const getWindowRef = (target : CrossDomainWindowType, domain : string, uid : string, context : $Values<typeof CONTEXT>) : WindowRef => {
-        
+
         if (domain === getDomain(window)) {
             const global = getGlobal(window);
             global.windows = global.windows || {};
@@ -471,7 +473,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             clean.register(() => {
                 delete global.windows[uid];
             });
-    
+
             return { type: WINDOW_REFERENCES.GLOBAL, uid };
         }
 
@@ -533,27 +535,27 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         if (openOverride) {
             return openOverride(context,  { proxyWin, proxyFrame, windowName });
         }
-        
+
         return ZalgoPromise.try(() => {
             if (context === CONTEXT.IFRAME && __ZOID__.__IFRAME_SUPPORT__) {
                 if (!proxyFrame) {
                     throw new Error(`Expected proxy frame to be passed`);
                 }
-        
+
                 return proxyFrame.get().then(frame => {
                     return awaitFrameWindow(frame).then(win => {
-        
+
                         const frameWatcher = watchElementForClose(frame, close);
                         clean.register(() => frameWatcher.cancel());
                         clean.register(() => destroyElement(frame));
                         clean.register(() => cleanUpWindow(win));
-        
+
                         return win;
                     });
                 });
             } else if (context === CONTEXT.POPUP && __ZOID__.__POPUP_SUPPORT__) {
                 let { width, height } = dimensions;
-    
+
                 width = normalizeDimension(width, window.outerWidth);
                 height = normalizeDimension(height, window.outerWidth);
 
@@ -564,9 +566,9 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
                     height,
                     ...getAttributes().popup
                 };
-    
+
                 const win = popup('', attrs);
-    
+
                 clean.register(() => closeWindow(win));
                 clean.register(() => cleanUpWindow(win));
 
@@ -586,7 +588,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             const unloadWindowListener = addEventListener(window, 'unload', once(() => {
                 destroy(new Error(`Window navigated away`));
             }));
-    
+
             const closeParentWindowListener = onCloseWindow(parentWin, destroy, 3000);
             clean.register(closeParentWindowListener.cancel);
             clean.register(unloadWindowListener.cancel);
@@ -617,7 +619,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
 
     const checkWindowClose = (proxyWin : ProxyWindow) : ZalgoPromise<boolean> => {
         let closed = false;
-        
+
         return proxyWin.isClosed().then(isClosed => {
             if (isClosed) {
                 closed = true;
@@ -695,7 +697,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         if (prerenderOverride) {
             return prerenderOverride(proxyPrerenderWin, { context, uid });
         }
-                                                                                                                                                                                                                                    
+
         return ZalgoPromise.try(() => {
             if (!prerenderTemplate) {
                 return;
@@ -708,7 +710,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             }
 
             prerenderWindow = assertSameDomain(prerenderWindow);
-    
+
             const doc = prerenderWindow.document;
             const el = renderTemplate(prerenderTemplate, { context, uid, doc });
 
@@ -724,7 +726,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
 
             let { width = false, height = false, element = 'body' } = autoResize;
             element = getElementSafe(element, doc);
-            
+
             if (element && (width || height)) {
                 const prerenderResizeListener = onResize(element, ({ width: newWidth, height: newHeight }) => {
                     resize({
@@ -778,7 +780,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         if (__POST_ROBOT__.__IE_POPUP_SUPPORT__) {
             return ZalgoPromise.try(() => {
                 return proxyWin.awaitWindow();
-                
+
             }).then(win => {
                 if (!bridge || !bridge.needsBridge({ win, domain }) || bridge.hasBridge(domain, domain)) {
                     return;
@@ -820,7 +822,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
         return initPromise.then(() => {
             const child = childComponent;
             const proxyWin = currentProxyWin;
-            
+
             if (!child || !proxyWin) {
                 return;
             }
@@ -918,7 +920,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             const uid = `${ ZOID }-${ tag }-${ uniqueID() }`;
             const domain = getDomainMatcher();
             const childDomain = getChildDomain();
-            
+
             checkAllowRender(target, domain, container);
 
             const delegatePromise = ZalgoPromise.try(() => {
@@ -930,7 +932,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
             const windowProp = props.window;
 
             const watchForUnloadPromise = watchForUnload();
-            
+
             const buildUrlPromise = buildUrl();
             const onRenderPromise = event.trigger(EVENT.RENDER);
 
@@ -964,7 +966,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
                 currentProxyWin = proxyWin;
                 return setProxyWin(proxyWin);
             });
-            
+
             const prerenderPromise = ZalgoPromise.hash({ proxyPrerenderWin: openPrerenderPromise, state: setStatePromise }).then(({ proxyPrerenderWin }) => {
                 return prerender(proxyPrerenderWin, { context, uid });
             });
@@ -1004,7 +1006,7 @@ export function parentComponent<P>(options : NormalizedComponentOptionsType<P>, 
                 openPrerenderPromise, setStatePromise, prerenderPromise, loadUrlPromise, buildWindowNamePromise, setWindowNamePromise, watchForClosePromise, onDisplayPromise,
                 openBridgePromise, runTimeoutPromise, onRenderedPromise, delegatePromise, watchForUnloadPromise
             });
-            
+
         }).catch(err => {
             return ZalgoPromise.all([
                 onError(err),

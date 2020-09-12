@@ -45,6 +45,8 @@ export const DEFAULT_DIMENSIONS = {
 };
 
 export const EVENT = {
+    SHOW:   'zoid-show',
+    HIDE:   'zoid-hide',
     RENDER:   'zoid-render',
     RENDERED: 'zoid-rendered',
     DISPLAY:  'zoid-display',
